@@ -1,4 +1,5 @@
 name: CI
+
 on:
   pull_request:
     types: [opened, reopened]
@@ -6,15 +7,24 @@ on:
     branches: ["**"]
 
 jobs:
-  image:
+  build-image:
     name: Build the image
     runs-on: ubuntu-20.04
+
     steps:
-      - uses: actions/checkout@v3
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: docker/setup-qemu-action@v2
-      - uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
+
+      # Set up QEMU for multi-platform builds
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      # Build and push the Docker image
+      - name: Build and push Docker image
+        uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
         env:
           ANY_REGISTRY_DISABLE: true
           DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
