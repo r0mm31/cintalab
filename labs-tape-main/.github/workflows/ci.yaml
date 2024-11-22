@@ -44,7 +44,7 @@ jobs:
           entrypoint: imagine
           args: build --platform linux/amd64 --config build.yaml --upstream-branch origin/main --registry ghcr.io/docker --push
 
-      # Build and push Docker image for arm64 in parallel
+      # 4. Multiplexión de Construcciones, ejecuta construcciones en paralelo para diferentes plataformas. Esto puede ser útil si tienes varias arquitecturas que deseas construir.
       - name: Build and push Docker image for arm64
         uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
         env:
