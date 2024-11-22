@@ -22,14 +22,37 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
-      # Build and push the Docker image
-      - name: Build and push Docker image
+      # Cache Docker layers
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      # Enable BuildKit for Docker
+      - name: Build and push Docker image for amd64
         uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
         env:
           ANY_REGISTRY_DISABLE: true
           DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
           GHCR_USERNAME: $GITHUB_ACTOR
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_BUILDKIT: 1
         with:
           entrypoint: imagine
-          args: build --platform linux/amd64,linux/arm64 --config build.yaml --upstream-branch origin/main --registry ghcr.io/docker --push
+          args: build --platform linux/amd64 --config build.yaml --upstream-branch origin/main --registry ghcr.io/docker --push
+
+      # Build and push Docker image for arm64 in parallel
+      - name: Build and push Docker image for arm64
+        uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
+        env:
+          ANY_REGISTRY_DISABLE: true
+          DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
+          GHCR_USERNAME: $GITHUB_ACTOR
+          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_BUILDKIT: 1
+        with:
+          entrypoint: imagine
+          args: build --platform linux/arm64 --config build.yaml --upstream-branch origin/main --registry ghcr.io/docker --push
