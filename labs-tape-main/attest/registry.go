@@ -1,102 +1,193 @@
-package attest_test
+package attest
 
 import (
-    "bytes"
-    "context"
-    "crypto/sha256"
-    "encoding/hex"
-    "io"
-    "testing"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"path/filepath"
+	"slices"
 
-    "github.com/google/go-containerregistry/pkg/crane"
-    . "github.com/onsi/gomega"
-
-    . "github.com/docker/labs-brown-tape/attest"
-    "github.com/docker/labs-brown-tape/attest/manifest"
-    "github.com/docker/labs-brown-tape/manifest/imageresolver"
-    "github.com/docker/labs-brown-tape/manifest/imagescanner"
-    "github.com/docker/labs-brown-tape/manifest/loader"
-    "github.com/docker/labs-brown-tape/manifest/testdata"
-    "github.com/docker/labs-brown-tape/oci"
-    // "github.com/docker/labs-brown-tape/trex"
+	"github.com/docker/labs-brown-tape/attest/digest"
+	"github.com/docker/labs-brown-tape/attest/manifest"
+	"github.com/docker/labs-brown-tape/attest/types"
+	"github.com/fxamacker/cbor/v2"
 )
 
-var (
-    craneOptions []crane.Option
-    //makeDestination func(string) string
-)
+type PathCheckerRegistry struct {
+	newPathChecker func(string, digest.SHA256) types.PathChecker
 
-const repeat = 3
+	registry     map[types.PathCheckerRegistryKey]types.PathChecker
+	mutatedPaths types.Mutations
+	statements   types.Statements
 
-func TestRegistry(t *testing.T) {
-    // trex.RunShared()
-    // craneOptions = trex.Shared.CraneOptions()
-    // makeDestination = trex.Shared.NewUniqueRepoNamer("bpt-registry-test")
-
-    cases := testdata.BaseYAMLCasesWithDigests(t)
-    cases.Run(t, ("../"), makeRegistryTest)
+	baseDir
 }
 
-func makeRegistryTest(tc testdata.TestCase) func(t *testing.T) {
-    return func(t *testing.T) {
-        g := NewWithT(t)
-        t.Parallel()
+type baseDir struct {
+	pathChecker   types.PathChecker
+	cachedSummary types.PathCheckSummary
 
-        checksums := make([]string, repeat)
-        for i := range checksums {
-
-            loader := loader.NewRecursiveManifestDirectoryLoader(tc.Directory)
-            g.Expect(loader.Load()).To(Succeed())
-
-            pathChecker, attreg, err := DetectVCS(tc.Directory)
-            g.Expect(err).NotTo(HaveOccurred())
-            g.Expect(pathChecker).ToNot(BeNil())
-            g.Expect(attreg).ToNot(BeNil())
-
-            scanner := imagescanner.NewDefaultImageScanner()
-            scanner.WithProvinanceAttestor(attreg)
-
-            expectedNumPaths := len(tc.Manifests)
-            g.Expect(loader.Paths()).To(HaveLen(expectedNumPaths))
-
-            for i := range tc.Manifests {
-                g.Expect(loader.ContainsRelPath(tc.Manifests[i])).To(BeTrue())
-            }
-
-            g.Expect(scanner.Scan(loader.RelPaths())).To(Succeed())
-
-            collection, err := attreg.MakePathCheckSummarySummaryCollection()
-            g.Expect(err).NotTo(HaveOccurred())
-            g.Expect(collection).ToNot(BeNil())
-            g.Expect(collection.Providers).To(ConsistOf("git"))
-            g.Expect(collection.EntryGroups).To(HaveLen(1))
-            g.Expect(collection.EntryGroups[0]).To(HaveLen(expectedNumPaths + 1))
-
-            g.Expect(attreg.AssociateCoreStatements()).To(Succeed())
-
-            ctx := context.Background()
-            client := oci.NewClient(craneOptions)
-
-            images := scanner.GetImages()
-
-            g.Expect(attreg.AssociateStatements(manifest.MakeOriginalImageRefStatements(images)...)).To(Succeed())
-
-            // TODO: should this use fake resolver to avoid network traffic or perhaps pre-cache images in trex?
-            g.Expect(imageresolver.NewRegistryResolver(client).ResolveDigests(ctx, images)).To(Succeed())
-
-            g.Expect(images.Dedup()).To(Succeed())
-
-            g.Expect(attreg.AssociateStatements(manifest.MakeResovedImageRefStatements(images)...)).To(Succeed())
-
-            hash := sha256.New()
-            buf := bytes.NewBuffer(nil)
-
-            g.Expect(attreg.EncodeAllAttestations(io.MultiWriter(buf, hash))).To(Succeed())
-            checksums[i] = hex.EncodeToString(hash.Sum(nil))
-        }
-        for i := range checksums {
-            g.Expect(checksums[i]).To(Equal(checksums[(i+1)%repeat]))
-        }
-    }
+	fromWorkDir, fromRepoRoot string
 }
 
+func NewPathCheckerRegistry(dir string, newPathChecker func(string, digest.SHA256) types.PathChecker) *PathCheckerRegistry {
+	return &PathCheckerRegistry{
+		baseDir:        baseDir{fromWorkDir: dir},
+		newPathChecker: newPathChecker,
+		registry:       map[types.PathCheckerRegistryKey]types.PathChecker{},
+		statements:     types.Statements{},
+	}
+}
+
+func (r *PathCheckerRegistry) BaseDirSummary() types.PathCheckSummary {
+	return r.baseDir.cachedSummary
+}
+
+func (r *PathCheckerRegistry) init(baseDirChecker types.PathChecker) error {
+	summary, err := baseDirChecker.MakeSummary()
+	if err != nil {
+		return fmt.Errorf("unable to make summary for %#v: %w", r.dir(), err)
+	}
+	r.baseDir = baseDir{
+		pathChecker:   baseDirChecker,
+		cachedSummary: summary,
+		fromRepoRoot:  summary.Common().Path,
+		fromWorkDir:   r.fromWorkDir,
+	}
+	return nil
+}
+
+func (r *PathCheckerRegistry) Register(path string, digest digest.SHA256) error {
+	key := r.makeKey(r.pathFromRepoRoot(path), digest)
+	if _, ok := r.registry[key]; ok {
+		return fmt.Errorf("path checker already reigstered for %#v", key)
+	}
+	r.registry[key] = r.newPathChecker(r.pathFromWorkDir(path), digest)
+	return nil
+}
+
+func (r *PathCheckerRegistry) RegisterMutated(mutatedPaths types.Mutations) {
+	r.mutatedPaths = make(types.Mutations, len(mutatedPaths)) // avoid stale entries
+	for k := range mutatedPaths {
+		oldDigest := mutatedPaths[k]
+		k.Path = r.pathFromRepoRoot(k.Path)
+		r.mutatedPaths[k] = oldDigest
+	}
+}
+
+func (r *PathCheckerRegistry) AssociateStatements(statements ...types.Statement) error {
+	for i := range statements {
+		if err := statements[i].SetSubjects(func(subject *types.Subject) error {
+			path := r.pathFromRepoRoot(subject.Name)
+			key := r.makeKey(path, subject.Digest)
+			if _, ok := r.registry[key]; !ok {
+				err := fmt.Errorf("statement with subject %#v is not relevant (path resoved to %q)", subject, path)
+				if r.mutatedPaths == nil {
+					return err
+				}
+				if _, ok := r.mutatedPaths[key]; !ok {
+					return err
+				}
+			}
+			subject.Name = path
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	r.statements = append(r.statements, statements...)
+	return nil
+}
+
+func (r *PathCheckerRegistry) MakePathCheckSummarySummaryCollection() (*types.PathCheckSummaryCollection, error) {
+	numEntries := len(r.registry) + 1
+	if numEntries == 0 {
+		return nil, nil
+	}
+	entries := make([]types.PathChecker, 1, numEntries)
+	entries[0] = r.baseDir.pathChecker
+	for key := range r.registry {
+		entries = append(entries, r.registry[key])
+	}
+	return types.MakePathCheckSummaryCollection(entries...)
+}
+
+func (r *PathCheckerRegistry) AssociateCoreStatements() error {
+	errFmt := "unable to associate core statements: %w"
+
+	entries, err := r.MakePathCheckSummarySummaryCollection()
+	if err != nil {
+		return fmt.Errorf(errFmt, err)
+	}
+
+	// this flow is different from AssociateCoreStatements, as path to
+	// files is always relative to repo root and statement.SetSubjects
+	// doesn't need to be called
+	statement := manifest.MakeDirContentsStatement(r.dir(), entries)
+	for _, subject := range statement.GetSubject() {
+		key := r.makeKey(subject.Name, subject.Digest)
+		if _, ok := r.registry[key]; !ok {
+			return fmt.Errorf("statement with subject %#v is not relevant", subject)
+		}
+	}
+	r.statements = append(r.statements, statement)
+
+	return nil
+}
+
+func (r *PathCheckerRegistry) EncodeAllAttestations(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+	if err := r.GetStatements().EncodeWith(encoder.Encode); err != nil {
+		return fmt.Errorf("unable to encode attestations: %w", err)
+	}
+	return nil
+}
+
+func (r *PathCheckerRegistry) GetStatements() types.Statements {
+	slices.SortFunc(r.statements, func(a, b types.Statement) int {
+		if cmp := a.Compare(b); cmp != nil {
+			return *cmp
+		}
+
+		// NB: nil can only be returned if perdicates couldn't be compared,
+		// the statement headers were checked first, are always comparable;
+		// comparison of bytes obtained from encoding is not ideal, but
+		// it's the best we can do as fallback without implementing
+		// comparison for each predicate type
+		// NB: it's also definite that both of these predicates are of the
+		// same type (at least based on the header)
+		bufA, bufB := bytes.NewBuffer(nil), bytes.NewBuffer(nil)
+		if err := cbor.NewEncoder(bufA).Encode(a.GetPredicate()); err != nil {
+			panic(fmt.Sprintf("unexpected error encoding predicate of type %T: %s", a.GetPredicate(), err))
+		}
+		if err := cbor.NewEncoder(bufB).Encode(b.GetPredicate()); err != nil {
+			panic(fmt.Sprintf("unexpected error encoding predicate of type %T: %s", b.GetPredicate(), err))
+		}
+		return bytes.Compare(bufA.Bytes(), bufB.Bytes())
+	})
+	return r.statements
+}
+
+func (r *PathCheckerRegistry) dir() string {
+	switch {
+	case r.baseDir.fromRepoRoot != "":
+		return r.baseDir.fromRepoRoot
+	case r.baseDir.fromWorkDir != "":
+		return r.baseDir.fromWorkDir
+	default:
+		return "."
+	}
+}
+
+func (r *PathCheckerRegistry) pathFromRepoRoot(path string) string {
+	return filepath.Join(r.fromRepoRoot, path)
+}
+
+func (r *PathCheckerRegistry) pathFromWorkDir(path string) string {
+	return filepath.Join(r.fromWorkDir, path)
+}
+
+func (r *PathCheckerRegistry) makeKey(path string, digest digest.SHA256) types.PathCheckerRegistryKey {
+	return types.PathCheckerRegistryKey{Path: path, Digest: digest}
+}
