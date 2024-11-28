@@ -61,8 +61,8 @@ func TestDetectVCS(t *testing.T) {
                 }
             }
 
-            originalProvider := git.ProviderName
-            git.ProviderName = "mock"
+            originalProvider := git.ProviderName // Asegúrate de tener esto correcto.
+            git.ProviderName = "mock" // Cambia esto según tu implementación real.
             defer func() { git.ProviderName = originalProvider }()
 
             success, _, err := DetectVCS(tt.path)
