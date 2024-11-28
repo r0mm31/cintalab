@@ -15,7 +15,6 @@ type MockPathChecker struct {
 	detectRepoError  error
 }
 
-// DetectRepo simula la detección de un repositorio.
 func (m *MockPathChecker) DetectRepo() (bool, error) {
 	return m.detectRepoResult, m.detectRepoError
 }
@@ -63,51 +62,24 @@ func TestDetectVCS(t *testing.T) {
 func TestIntegrationDetectVCS(t *testing.T) {
 	tempDir := t.TempDir()
 
-	if err := initializeGitRepo(tempDir); err != nil {
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to initialize git repo: %v", err)
 	}
 
-	if success, _, err := DetectVCS(tempDir); !success || err != nil {
+	success, _, err := DetectVCS(tempDir)
+	if !success || err != nil {
 		t.Errorf("expected success but got failure with error: %v", err)
 	}
 
-	if err := createAndCommitFile(tempDir, "testfile.txt", "test commit"); err != nil {
-		t.Fatalf("failed to create and commit file: %v", err)
-	}
+	filePath := fmt.Sprintf("%s/testfile.txt", tempDir)
+	exec.Command("touch", filePath).Run()
+	exec.Command("git", "add", ".").Run()
+	exec.Command("git", "commit", "-m", "test commit").Run()
 
-	if success, _, err := DetectVCS(tempDir); !success || err != nil {
+	success, _, err = DetectVCS(tempDir)
+	if !success || err != nil {
 		t.Errorf("expected success after commit but got failure with error: %v", err)
 	}
-}
-
-// initializeGitRepo inicializa un repositorio Git en el directorio especificado.
-func initializeGitRepo(dir string) error {
-	cmd := exec.Command("git", "init")
-	cmd.Dir = dir
-	return cmd.Run()
-}
-
-// createAndCommitFile crea un archivo y lo añade al repositorio Git.
-func createAndCommitFile(dir, filename, commitMessage string) error {
-	filePath := fmt.Sprintf("%s/%s", dir, filename)
-
-	if err := exec.Command("touch", filePath).Run(); err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	if err := exec.Command("git", "add", ".").Run(); err != nil {
-		return fmt.Errorf("failed to add file to git: %w", err)
-	}
-	if err := exec.Command("git", "commit", "-m", commitMessage).Run(); err != nil {
-		return fmt.Errorf("failed to commit file: %w", err)
-	}
-	return nil
-}
-
-// Función para subir imágenes (ejemplo).
-func UploadImage(imagePath string) error {
-	cmd := exec.Command("docker", "push", imagePath)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to upload image: %w", err)
-	}
-	return nil
 }
