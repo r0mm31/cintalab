@@ -15,14 +15,15 @@ import (
 )
 
 type PathCheckerRegistry struct {
-	newPathChecker func(string, digest.SHA256) types.PathChecker
+    newPathChecker func(string, digest.SHA256) types.PathChecker
 
-	registry     map[types.PathCheckerRegistryKey]types.PathChecker
-	mutatedPaths types.Mutations
-	statements   types.Statements
+    registry     map[types.PathCheckerRegistryKey]types.PathChecker
+    mutatedPaths types.Mutations
+    statements   types.Statements
 
-	baseDir
+    baseDir baseDir // Declarar el tipo explícitamente
 }
+
 
 type baseDir struct {
 	pathChecker   types.PathChecker
