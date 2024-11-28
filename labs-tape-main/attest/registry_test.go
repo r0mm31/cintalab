@@ -49,7 +49,7 @@ func TestDetectVCS(t *testing.T) {
 			expectedSuccess: false,
 			expectedError: fmt.Errorf("path cannot be empty"),
         },
-        // Más casos de prueba.
+        // Más casos de prueba...
     }
 
 	for _, tt := range tests {
@@ -61,7 +61,8 @@ func TestDetectVCS(t *testing.T) {
                 }
             }
 
-            originalProvider := git.ProviderName // Asegúrate de tener esto correcto.
+            // Aquí debes asegurarte de que estás usando el mock correctamente.
+            originalProvider := git.ProviderName // Cambia esto si es necesario.
             git.ProviderName = "mock" // Cambia esto según tu implementación real.
             defer func() { git.ProviderName = originalProvider }()
 
