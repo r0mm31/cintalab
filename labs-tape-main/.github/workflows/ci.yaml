@@ -37,8 +37,8 @@ jobs:
         env:
           ANY_REGISTRY_DISABLE: true
           DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
-          GHCR_USERNAME: $GITHUB_ACTOR
-          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: dckr_pat_N8FqLdAokEP-s-QHzJ_Q1_khCtk
+          GHCR_PASSWORD: dckr_pat_kyvIecRbClL7HLhTSxDeDo5qT58 
           DOCKER_BUILDKIT: 1
         with:
           entrypoint: imagine
@@ -50,8 +50,8 @@ jobs:
         env:
           ANY_REGISTRY_DISABLE: true
           DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
-          GHCR_USERNAME: $GITHUB_ACTOR
-          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: dckr_pat_N8FqLdAokEP-s-QHzJ_Q1_khCtk
+          GHCR_PASSWORD: dckr_pat_kyvIecRbClL7HLhTSxDeDo5qT58
           DOCKER_BUILDKIT: 1
         with:
           entrypoint: imagine
