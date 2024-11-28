@@ -1,36 +1,60 @@
 name: CI
 
 on:
+  pull_request:
+    types: [opened, reopened]
   push:
-    branches:
-      - main
+    branches: ["**"]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-image:
+    name: Build the image
+    runs-on: ubuntu-20.04
+
     steps:
+      # Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
+        uses: actions/checkout@v3
         with:
-          registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_PASSWORD }}
+          fetch-depth: 0
 
+      # Set up QEMU for multi-platform builds
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      # Cache Docker layers
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      # Enable BuildKit for Docker
       - name: Build and push Docker image for amd64
-        uses: docker/build-push-action@v2
+        uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
+        env:
+          ANY_REGISTRY_DISABLE: true
+          DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
+          GHCR_USERNAME: $GITHUB_ACTOR
+          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_BUILDKIT: 1
         with:
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/your-image-name:latest
-          platforms: linux/amd64
-          build-args: |
-            # Aquí puedes agregar argumentos de construcción si es necesario
+          entrypoint: imagine
+          args: build --platform linux/amd64 --config build.yaml --upstream-branch origin/main --registry ghcr.io/docker --push
 
+      # 4. Multiplexión de Construcciones, ejecuta construcciones en paralelo para diferentes plataformas. Esto puede ser útil si tienes varias arquitecturas que deseas construir.
       - name: Build and push Docker image for arm64
-        uses: docker/build-push-action@v2
+        uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
+        env:
+          ANY_REGISTRY_DISABLE: true
+          DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
+          GHCR_USERNAME: $GITHUB_ACTOR
+          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_BUILDKIT: 1
         with:
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/your-image-name-arm64:latest
-          platforms: linux/arm64
+          entrypoint: imagine
+          args: build --platform linux/arm64 --config build.yaml --upstream-branch origin/main --registry ghcr.io/docker --push
+
+
