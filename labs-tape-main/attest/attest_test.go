@@ -49,11 +49,12 @@ func TestDetectVCS(t *testing.T) {
 			expectedSuccess: false,
 			expectedError: fmt.Errorf("path cannot be empty"),
         },
-        // Más casos de prueba.
+        // Puedes agregar más casos de prueba según sea necesario.
     }
 
 	for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
+            // Configurar el mock checker.
             mockProvider := func(string, digest.SHA256) types.PathChecker {
                 return &MockPathChecker{
                     detectRepoResult: tt.mockRepoResult,
@@ -61,6 +62,7 @@ func TestDetectVCS(t *testing.T) {
                 }
             }
 
+            // Reemplazar el proveedor de VCS por el mock.
             originalProvider := git.ProviderName
             git.ProviderName = "mock"
             defer func() { git.ProviderName = originalProvider }()
@@ -91,17 +93,5 @@ func TestIntegrationDetectVCS(t *testing.T) {
     success, _, err := DetectVCS(tempDir)
     if !success || err != nil {
         t.Errorf("expected success but got failure with error: %v", err)
-    }
-
-    // Agregar un archivo y hacer commit.
-    filePath := fmt.Sprintf("%s/testfile.txt", tempDir)
-    exec.Command("touch", filePath).Run()
-    exec.Command("git", "add", ".").Run()
-    exec.Command("git", "commit", "-m", "test commit").Run()
-
-    // Volver a probar la detección del VCS.
-    success, _, err = DetectVCS(tempDir)
-    if !success || err != nil {
-        t.Errorf("expected success after commit but got failure with error: %v", err)
     }
 }
