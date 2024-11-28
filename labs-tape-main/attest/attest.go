@@ -9,23 +9,23 @@ import (
 	"github.com/docker/labs-brown-tape/attest/vcs/git"
 )
 
-// PathCheckerRegistry es una estructura que almacena información sobre el PathChecker.
-type PathCheckerRegistry struct {
+// Renombrar PathCheckerRegistry a SimplePathCheckerRegistry
+type SimplePathCheckerRegistry struct {
 	Path     string
 	Provider string
 	Checker  types.PathChecker
 }
 
-// NewPathCheckerRegistry crea una nueva instancia de PathCheckerRegistry.
-func NewPathCheckerRegistry(path string, provider string) *PathCheckerRegistry {
-	return &PathCheckerRegistry{
+// Nuevo constructor para la estructura renombrada
+func NewSimplePathCheckerRegistry(path string, provider string) *SimplePathCheckerRegistry {
+	return &SimplePathCheckerRegistry{
 		Path:     path,
 		Provider: provider,
 	}
 }
 
 // DetectVCS detecta el sistema de control de versiones en la ruta especificada.
-func DetectVCS(path string) (bool, *PathCheckerRegistry, error) {
+func DetectVCS(path string) (bool, *SimplePathCheckerRegistry, error) {
 	if path == "" {
 		return false, nil, fmt.Errorf("path cannot be empty")
 	}
@@ -40,7 +40,7 @@ func DetectVCS(path string) (bool, *PathCheckerRegistry, error) {
 			return false, nil, fmt.Errorf("unable to detect VCS: %w", err)
 		}
 		if ok {
-			registry := NewPathCheckerRegistry(path, provider)
+			registry := NewSimplePathCheckerRegistry(path, provider) // Ajustar aquí también
 			if err := registry.init(checker); err != nil {
 				return false, nil, err
 			}
@@ -50,8 +50,8 @@ func DetectVCS(path string) (bool, *PathCheckerRegistry, error) {
 	return false, nil, nil
 }
 
-// init inicializa el PathCheckerRegistry.
-func (r *PathCheckerRegistry) init(checker types.PathChecker) error {
+// init inicializa el SimplePathCheckerRegistry.
+func (r *SimplePathCheckerRegistry) init(checker types.PathChecker) error {
 	if checker == nil {
 		return fmt.Errorf("checker cannot be nil")
 	}
