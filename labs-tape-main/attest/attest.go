@@ -9,14 +9,14 @@ import (
 	"github.com/docker/labs-brown-tape/attest/vcs/git"
 )
 
-// Renombrar PathCheckerRegistry a SimplePathCheckerRegistry
+// SimplePathCheckerRegistry es una estructura que almacena información sobre el PathChecker.
 type SimplePathCheckerRegistry struct {
 	Path     string
 	Provider string
 	Checker  types.PathChecker
 }
 
-// Nuevo constructor para la estructura renombrada
+// NewSimplePathCheckerRegistry crea una nueva instancia de SimplePathCheckerRegistry.
 func NewSimplePathCheckerRegistry(path string, provider string) *SimplePathCheckerRegistry {
 	return &SimplePathCheckerRegistry{
 		Path:     path,
@@ -40,7 +40,7 @@ func DetectVCS(path string) (bool, *SimplePathCheckerRegistry, error) {
 			return false, nil, fmt.Errorf("unable to detect VCS: %w", err)
 		}
 		if ok {
-			registry := NewSimplePathCheckerRegistry(path, provider) // Ajustar aquí también
+			registry := NewSimplePathCheckerRegistry(path, provider)
 			if err := registry.init(checker); err != nil {
 				return false, nil, err
 			}
