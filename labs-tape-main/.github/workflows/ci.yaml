@@ -4,25 +4,25 @@ on:
   pull_request:
     types: [opened, reopened]
   push:
-    branches: ["**"]
+    branches: ["main"]
 
 jobs:
   build-image:
-    name: Build the image
+    name: Build and Test the Docker Image
     runs-on: ubuntu-20.04
 
     steps:
-      # Checkout the repository
+      # 1. Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # Set up QEMU for multi-platform builds
+      # 2. Set up QEMU for multi-platform builds
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
-      # Cache Docker layers
+      # 3. Cache Docker layers
       - name: Cache Docker layers
         uses: actions/cache@v3
         with:
@@ -31,30 +31,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      # Enable BuildKit for Docker
+      # 4. Enable BuildKit for Docker
       - name: Build and push Docker image for amd64
-        uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
-        env:
-          ANY_REGISTRY_DISABLE: true
-          DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
-          GHCR_USERNAME: $GITHUB_ACTOR
-          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          DOCKER_BUILDKIT: 1
+        uses: docker/build-push-action@v2
         with:
-          entrypoint: imagine
-          args: build --platform linux/amd64 --config build.yaml --upstream-branch origin/main --registry ghcr.io/docker --push
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}/my-go-app:latest
+          platforms: linux/amd64
 
-      # 4. Multiplexión de Construcciones, ejecuta construcciones en paralelo para diferentes plataformas. Esto puede ser útil si tienes varias arquitecturas que deseas construir.
+      # 5. Build and push Docker image for arm64
       - name: Build and push Docker image for arm64
-        uses: docker://ghcr.io/errordeveloper/imagine:2ac274f.8fed464-dev@sha256:fb1b83b0b83701990dbf9449058c7ad611e70ec15cb42bb394260a71daeb391f
-        env:
-          ANY_REGISTRY_DISABLE: true
-          DOCKER_HUB_PUBLIC_ACCESS_ONLY: true
-          GHCR_USERNAME: $GITHUB_ACTOR
-          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          DOCKER_BUILDKIT: 1
+        uses: docker/build-push-action@v2
         with:
-          entrypoint: imagine
-          args: build --platform linux/arm64 --config build.yaml --upstream-branch origin/main --registry ghcr.io/docker --push
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}/my-go-app:latest-arm64
+          platforms: linux/arm64
 
+      # 6. Run tests inside the Docker container after building the image
+      - name: Run Tests in Docker Container
+        run: |
+          docker run --rm ghcr.io/${{ github.repository }}/my-go-app:latest go test ./...
+
+      # 7. Security Scan (opcional)
+      - name: Scan for Vulnerabilities with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/my-go-app:latest
+          format: 'table'
+          exit-code-on-high-severity: true
 

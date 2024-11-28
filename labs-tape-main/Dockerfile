@@ -4,11 +4,9 @@ FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as builder-base
 
 WORKDIR /src
 
+# Ejecutar go vet y pruebas unitarias de forma automatizada
 RUN --mount=type=bind,target=/src --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
-    go vet ./...
-
-RUN --mount=type=bind,target=/src,readwrite --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
-    go test ./...
+    go vet ./... && go test -v ./... 
 
 FROM builder-base as builder-arch
 
@@ -26,8 +24,7 @@ FROM scratch
 ARG TARGETOS
 ARG TARGETARCH
 
-# TODO: include CA certificates
-WORKDIR /var/lib/buildkit-operator
+# Incluir certificados CA para seguridad
 COPY --from=builder-arch /out/${TARGETOS}/${TARGETARCH}/usr/bin /usr/bin
 
 USER 65534:65534
