@@ -1,4 +1,3 @@
-// En attest_test.go
 package attest
 
 import (
@@ -11,50 +10,21 @@ import (
 	"github.com/docker/labs-brown-tape/attest/vcs/git" // Asegúrate de importar esto.
 )
 
-// MockPathChecker es una implementación simulada de PathChecker para pruebas.
-type MockPathChecker struct {
-	detectRepoResult bool
-	detectRepoError  error
-}
-
-func (m *MockPathChecker) DetectRepo() (bool, error) {
-	return m.detectRepoResult, m.detectRepoError
-}
-
-// Implementa el método Check si es necesario.
-func (m *MockPathChecker) Check() {
-	// Implementación del método Check (si es necesario)
-}
-
 // TestDetectVCS prueba la función DetectVCS.
 func TestDetectVCS(t *testing.T) {
 	tests := []struct {
 		name             string
 		path             string
-		mockRepoResult   bool
-		mockRepoError    error
 		expectedSuccess  bool
 		expectedError    error
 	}{
-		{"valid VCS detection", "/valid/path", true, nil, true, nil},
-		{"invalid VCS detection", "/invalid/path", false, nil, false, nil},
-		{"empty path", "", false, fmt.Errorf("path cannot be empty"), false, fmt.Errorf("path cannot be empty")},
+		{"valid VCS detection", "/valid/path", true, nil},
+		{"invalid VCS detection", "/invalid/path", false, nil},
+		{"empty path", "", false, fmt.Errorf("path cannot be empty")},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockProvider := func(string, digest.SHA256) types.PathChecker {
-				return &MockPathChecker{
-					detectRepoResult: tt.mockRepoResult,
-					detectRepoError:  tt.mockRepoError,
-				}
-			}
-
-			// Cambiar el proveedor a un mock.
-			originalProvider := git.ProviderName // Asegúrate de tener esto correcto.
-			git.ProviderName = "mock"             // Cambia esto según tu implementación real.
-			defer func() { git.ProviderName = originalProvider }()
-
 			success, _, err := DetectVCS(tt.path)
 
 			if success != tt.expectedSuccess || (err != nil && err.Error() != tt.expectedError.Error()) {
