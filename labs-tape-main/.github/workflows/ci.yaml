@@ -54,7 +54,7 @@ jobs:
         run: |
           docker run --rm ghcr.io/${{ github.repository }}/my-go-app:latest go test ./...
 
-      # 7. Security Scan (opcional)
+      # 7. Security Scan
       - name: Scan for Vulnerabilities with Trivy
         uses: aquasecurity/trivy-action@master
         with:
