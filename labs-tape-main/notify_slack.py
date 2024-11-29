@@ -16,3 +16,4 @@ def send_slack_notification(message):
 if __name__ == "__main__":
     message = "La imagen de Alex y Roman se ha subido correctamente a Docker Hub."
     send_slack_notification(message)
+    print(message)  # Mostrar el mensaje en la terminal
