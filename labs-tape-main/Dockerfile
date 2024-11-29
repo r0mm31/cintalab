@@ -1,16 +1,21 @@
+
 # Usar una imagen base oficial de Python
 FROM python:3.11-slim
 
 # Establecer el directorio de trabajo
 WORKDIR /app
 
-# Copiar todos los archivos del proyecto al contenedor
-COPY . .
+# Copiar solo el archivo requirements.txt primero para aprovechar el caché
+COPY requirements.txt ./
 
 # Instalar dependencias (si tienes alguna)
-# Si tienes dependencias, puedes crear un requirements.txt más adelante
-# RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar el resto del código al contenedor
+COPY . .
 
 # Definir el comando para ejecutar la aplicación
-# Cambia "your_script.py" por el nombre de tu script principal
-CMD ["python", "your_script.py"]
+CMD ["python", "your_script.py"] # Cambia "your_script.py" por el nombre real de tu script principal
+
+# Opcionalmente, puedes agregar un HEALTHCHECK si tu aplicación lo requiere.
+HEALTHCHECK CMD curl --fail http://localhost:5000/ || exit 1
