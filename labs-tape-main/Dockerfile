@@ -1,18 +1,22 @@
-# Usa la imagen base de Go
-FROM golang:1.21 AS builder-base
+# Usar una imagen base oficial de Ubuntu
+FROM ubuntu:22.04
 
-# Establece el directorio de trabajo
-WORKDIR /src
+# Establecer el directorio de trabajo
+WORKDIR /app
 
-# Copia los archivos necesarios al contenedor
+# Copiar los archivos necesarios al contenedor
+COPY requirements.txt ./
+
+# Instalar las dependencias necesarias
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    pip3 install --no-cache-dir -r requirements.txt
+
+# Copiar el código de la aplicación
 COPY . .
 
-# Construye la aplicación (ajusta según sea necesario)
-RUN go build -o myapp .
+# Definir el comando para ejecutar la aplicación
+CMD ["python3", "app.py"]
 
-# Imagen final para producción (puedes usar scratch o una imagen mínima)
-FROM scratch
-
-COPY --from=builder-base /src/myapp /myapp
-
-ENTRYPOINT ["/myapp"]
+# Configuración de reinicio automático en caso de fallo
+HEALTHCHECK CMD curl --fail http://localhost:5000/ || exit 1
