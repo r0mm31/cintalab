@@ -1,62 +1,101 @@
-package attest
+package attest_test
 
 import (
-	"fmt"
-	"os/exec"
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"testing"
 
-	"github.com/docker/labs-brown-tape/attest/digest"
-	"github.com/docker/labs-brown-tape/attest/types"
-	"github.com/docker/labs-brown-tape/attest/vcs/git" // Asegúrate de importar esto.
+	"github.com/google/go-containerregistry/pkg/crane"
+	. "github.com/onsi/gomega"
+
+	. "github.com/docker/labs-brown-tape/attest"
+	"github.com/docker/labs-brown-tape/attest/manifest"
+	"github.com/docker/labs-brown-tape/manifest/imageresolver"
+	"github.com/docker/labs-brown-tape/manifest/imagescanner"
+	"github.com/docker/labs-brown-tape/manifest/loader"
+	"github.com/docker/labs-brown-tape/manifest/testdata"
+	"github.com/docker/labs-brown-tape/oci"
+	// "github.com/docker/labs-brown-tape/trex"
 )
 
-// TestDetectVCS prueba la función DetectVCS.
-func TestDetectVCS(t *testing.T) {
-	tests := []struct {
-		name             string
-		path             string
-		expectedSuccess  bool
-		expectedError    error
-	}{
-		{"valid VCS detection", "/valid/path", true, nil},
-		{"invalid VCS detection", "/invalid/path", false, nil},
-		{"empty path", "", false, fmt.Errorf("path cannot be empty")},
-	}
+var (
+	craneOptions []crane.Option
+	//makeDestination func(string) string
+)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			success, _, err := DetectVCS(tt.path)
+const repeat = 3
 
-			if success != tt.expectedSuccess || (err != nil && err.Error() != tt.expectedError.Error()) {
-				t.Errorf("expected success %v and error %v; got success %v and error %v",
-					tt.expectedSuccess, tt.expectedError, success, err)
-			}
-		})
-	}
+func TestRegistry(t *testing.T) {
+	// trex.RunShared()
+	// craneOptions = trex.Shared.CraneOptions()
+	// makeDestination = trex.Shared.NewUniqueRepoNamer("bpt-registry-test")
+
+	cases := testdata.BaseYAMLCasesWithDigests(t)
+	cases.Run(t, ("../"), makeRegistryTest)
 }
 
-// TestIntegrationDetectVCS prueba la detección del VCS en un entorno real.
-func TestIntegrationDetectVCS(t *testing.T) {
-	tempDir := t.TempDir()
+func makeRegistryTest(tc testdata.TestCase) func(t *testing.T) {
+	return func(t *testing.T) {
+		g := NewWithT(t)
+		t.Parallel()
 
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("failed to initialize git repo: %v", err)
-	}
+		checksums := make([]string, repeat)
+		for i := range checksums {
 
-	success, _, err := DetectVCS(tempDir)
-	if !success || err != nil {
-		t.Errorf("expected success but got failure with error: %v", err)
-	}
+			loader := loader.NewRecursiveManifestDirectoryLoader(tc.Directory)
+			g.Expect(loader.Load()).To(Succeed())
 
-	filePath := fmt.Sprintf("%s/testfile.txt", tempDir)
-	exec.Command("touch", filePath).Run()
-	exec.Command("git", "add", ".").Run()
-	exec.Command("git", "commit", "-m", "test commit").Run()
+			pathChecker, attreg, err := DetectVCS(tc.Directory)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(pathChecker).ToNot(BeNil())
+			g.Expect(attreg).ToNot(BeNil())
 
-	success, _, err = DetectVCS(tempDir)
-	if !success || err != nil {
-		t.Errorf("expected success after commit but got failure with error: %v", err)
+			scanner := imagescanner.NewDefaultImageScanner()
+			scanner.WithProvinanceAttestor(attreg)
+
+			expectedNumPaths := len(tc.Manifests)
+			g.Expect(loader.Paths()).To(HaveLen(expectedNumPaths))
+
+			for i := range tc.Manifests {
+				g.Expect(loader.ContainsRelPath(tc.Manifests[i])).To(BeTrue())
+			}
+
+			g.Expect(scanner.Scan(loader.RelPaths())).To(Succeed())
+
+			collection, err := attreg.MakePathCheckSummarySummaryCollection()
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(collection).ToNot(BeNil())
+			g.Expect(collection.Providers).To(ConsistOf("git"))
+			g.Expect(collection.EntryGroups).To(HaveLen(1))
+			g.Expect(collection.EntryGroups[0]).To(HaveLen(expectedNumPaths + 1))
+
+			g.Expect(attreg.AssociateCoreStatements()).To(Succeed())
+
+			ctx := context.Background()
+			client := oci.NewClient(craneOptions)
+
+			images := scanner.GetImages()
+
+			g.Expect(attreg.AssociateStatements(manifest.MakeOriginalImageRefStatements(images)...)).To(Succeed())
+
+			// TODO: should this use fake resolver to avoid network traffic or perhaps pre-cache images in trex?
+			g.Expect(imageresolver.NewRegistryResolver(client).ResolveDigests(ctx, images)).To(Succeed())
+
+			g.Expect(images.Dedup()).To(Succeed())
+
+			g.Expect(attreg.AssociateStatements(manifest.MakeResovedImageRefStatements(images)...)).To(Succeed())
+
+			hash := sha256.New()
+			buf := bytes.NewBuffer(nil)
+
+			g.Expect(attreg.EncodeAllAttestations(io.MultiWriter(buf, hash))).To(Succeed())
+			checksums[i] = hex.EncodeToString(hash.Sum(nil))
+		}
+		for i := range checksums {
+			g.Expect(checksums[i]).To(Equal(checksums[(i+1)%repeat]))
+		}
 	}
 }
