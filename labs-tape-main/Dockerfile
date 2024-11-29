@@ -19,7 +19,7 @@ RUN go build -o myapp .
 
 # Imagen final para producción (puedes usar scratch o una imagen mínima)
 FROM scratch
-FROM golang:1.21
+
 
 
 COPY --from=builder-base /src/myapp /myapp

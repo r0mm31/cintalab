@@ -18,7 +18,7 @@ import (
 	"github.com/docker/labs-brown-tape/manifest/loader"
 	"github.com/docker/labs-brown-tape/manifest/testdata"
 	"github.com/docker/labs-brown-tape/oci"
-	// "github.com/docker/labs-brown-tape/trex"
+
 )
 
 var (

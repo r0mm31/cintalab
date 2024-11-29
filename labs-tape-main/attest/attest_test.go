@@ -5,7 +5,16 @@ import (
 	"os/exec"
 	"testing"
 
-	
+	"github.com/google/go-containerregistry/pkg/crane"
+	. "github.com/onsi/gomega"
+
+	. "github.com/docker/labs-brown-tape/attest"
+	"github.com/docker/labs-brown-tape/attest/manifest"
+	"github.com/docker/labs-brown-tape/manifest/imageresolver"
+	"github.com/docker/labs-brown-tape/manifest/imagescanner"
+	"github.com/docker/labs-brown-tape/manifest/loader"
+	"github.com/docker/labs-brown-tape/manifest/testdata"
+	"github.com/docker/labs-brown-tape/oci"
 )
 
 // TestDetectVCS prueba la función DetectVCS.
