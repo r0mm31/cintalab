@@ -2,7 +2,7 @@
 ARG GOLANG_IMAGE=docker.io/library/golang:1.21@sha256:b490ae1f0ece153648dd3c5d25be59a63f966b5f9e1311245c947de4506981aa
 
 # Usa la imagen base de Go
-FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as builder-base
+FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS builder-base
 
 # Establece el directorio de trabajo
 WORKDIR /src
@@ -20,9 +20,6 @@ RUN go build -o myapp .
 # Imagen final para producción (puedes usar scratch o una imagen mínima)
 FROM scratch
 
-
-
 COPY --from=builder-base /src/myapp /myapp
 
 ENTRYPOINT ["/myapp"]
-
