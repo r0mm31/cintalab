@@ -6,9 +6,6 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/docker/labs-brown-tape/attest/digest"
-	"github.com/docker/labs-brown-tape/attest/types"
-	"github.com/docker/labs-brown-tape/attest/vcs/git" // Asegúrate de importar esto.
 )
 
 // TestDetectVCS prueba la función DetectVCS.
