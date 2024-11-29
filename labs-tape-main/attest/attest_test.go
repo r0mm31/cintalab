@@ -1,3 +1,4 @@
+// En attest_test.go
 package attest
 
 import (
@@ -11,7 +12,6 @@ import (
 )
 
 // MockPathChecker es una implementación simulada de PathChecker para pruebas.
-
 type MockPathChecker struct {
 	detectRepoResult bool
 	detectRepoError  error

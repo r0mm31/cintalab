@@ -10,21 +10,6 @@ import (
 	"github.com/docker/labs-brown-tape/attest/vcs/git" // Asegúrate de importar esto.
 )
 
-// MockPathChecker es una implementación simulada de PathChecker para pruebas.
-type MockPathChecker struct {
-	detectRepoResult bool
-	detectRepoError  error
-}
-
-func (m *MockPathChecker) DetectRepo() (bool, error) {
-	return m.detectRepoResult, m.detectRepoError
-}
-
-// Implementa el método Check si es necesario.
-func (m *MockPathChecker) Check() {
-	// Implementación del método Check (si es necesario)
-}
-
 // TestDetectVCS prueba la función DetectVCS.
 func TestDetectVCS(t *testing.T) {
 	tests := []struct {
