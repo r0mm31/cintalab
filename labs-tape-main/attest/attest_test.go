@@ -11,6 +11,7 @@ import (
 )
 
 // MockPathChecker es una implementación simulada de PathChecker para pruebas.
+
 type MockPathChecker struct {
 	detectRepoResult bool
 	detectRepoError  error
