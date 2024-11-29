@@ -8,10 +8,9 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 
 # Copiar solo el archivo requirements.txt primero para aprovechar el caché
-COPY requirements.txt ./
 
 # Instalar dependencias (si tienes alguna)
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r 
 
 # Copiar el resto del código al contenedor
 COPY . .
