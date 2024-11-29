@@ -1,22 +1,23 @@
-# Usar una imagen base oficial de Python
-FROM python:3.11-slim
+# Usar una imagen base oficial de Ubuntu
+FROM ubuntu:22.04
 
 # Establecer el directorio de trabajo
 WORKDIR /app
 
-# Establecer PYTHONUNBUFFERED para deshabilitar el buffering
-ENV PYTHONUNBUFFERED=1
+# Copiar los archivos necesarios al contenedor
+COPY requirements.txt ./
 
-# Copiar solo el archivo requirements.txt primero para aprovechar el caché
+# Instalar las dependencias necesarias
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    pip3 install --no-cache-dir -r requirements.txt
 
-# Instalar dependencias (si tienes alguna)
-RUN pip install --no-cache-dir -r 
-
-# Copiar el resto del código al contenedor
+# Copiar el código de la aplicación
 COPY . .
 
 # Definir el comando para ejecutar la aplicación
-CMD ["python", "-u", "your_script.py"]  # Cambia "your_script.py" por el nombre real de tu script principal
+CMD ["python3", "app.py"]
 
-# Opcionalmente, puedes agregar un HEALTHCHECK si tu aplicación lo requiere.
+# Configuración de reinicio automático en caso de fallo
 HEALTHCHECK CMD curl --fail http://localhost:5000/ || exit 1
+
