@@ -1,22 +1,16 @@
-# Usar una imagen base oficial de Ubuntu
-FROM ubuntu:22.04
+# Usar una imagen base oficial de Python
+FROM python:3.11-slim
 
 # Establecer el directorio de trabajo
 WORKDIR /app
 
-# Copiar los archivos necesarios al contenedor
-COPY requirements.txt ./
-
-# Instalar las dependencias necesarias
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip && \
-    pip3 install --no-cache-dir -r requirements.txt
-
-# Copiar el código de la aplicación
+# Copiar todos los archivos del proyecto al contenedor
 COPY . .
 
-# Definir el comando para ejecutar la aplicación
-CMD ["python3", "app.py"]
+# Instalar dependencias (si tienes alguna)
+# Si tienes dependencias, puedes crear un requirements.txt más adelante
+# RUN pip install --no-cache-dir -r requirements.txt
 
-# Configuración de reinicio automático en caso de fallo
-HEALTHCHECK CMD curl --fail http://localhost:5000/ || exit 1
+# Definir el comando para ejecutar la aplicación
+# Cambia "your_script.py" por el nombre de tu script principal
+CMD ["python", "your_script.py"]
