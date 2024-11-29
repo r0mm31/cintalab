@@ -12,6 +12,4 @@ COPY . .
 # RUN pip install --no-cache-dir -r requirements.txt
 
 # Definir el comando para ejecutar la aplicación
-# Cambia "your_script.py" por el nombre de tu script principal
-CMD ["python", "your_script.py"]
-
+CMD ["python", "-c", "print('La imagen de Alex y Roman se ha subido correctamente a Docker Hub.')"]
